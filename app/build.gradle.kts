@@ -10,20 +10,37 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "helium314.keyboard"
+        applicationId = "dev.bogdi.keyboard"
+        // fork: authorities derived from applicationId so the fork can coexist with upstream HeliBoard
+        resValue("string", "clipboard_provider_authority", "dev.bogdi.keyboard.clipprovider")
+        resValue("string", "gesture_data_provider_authority", "dev.bogdi.keyboard.provider")
         minSdk = 21
         targetSdk = 37
-        versionCode = 4300
+        versionCode = System.getenv("CLAVIER_VERSION_CODE")?.toIntOrNull() ?: 4300
         versionName = "4.3-beta1"
         ndk {
             abiFilters.clear()
-            abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64"))
+            abiFilters.addAll(listOf("arm64-v8a")) // fork: personal phone only, keeps APK and CI small
         }
         proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
     }
 
+    signingConfigs {
+        create("fork") {
+            // key lives outside the repo; without env vars the release APK stays unsigned
+            val keystore = System.getenv("CLAVIER_KEYSTORE_PATH")
+            if (keystore != null) {
+                storeFile = file(keystore)
+                storePassword = System.getenv("CLAVIER_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("CLAVIER_KEY_ALIAS")
+                keyPassword = System.getenv("CLAVIER_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (System.getenv("CLAVIER_KEYSTORE_PATH") != null) signingConfig = signingConfigs.getByName("fork")
             isMinifyEnabled = true
             isShrinkResources = false
             isDebuggable = false
@@ -66,7 +83,7 @@ android {
             }
             variant.outputs.forEach { output ->
                 if (output is com.android.build.api.variant.impl.VariantOutputImpl) {
-                    output.outputFileName = "HeliBoard_${defaultConfig.versionName}-${variant.buildType}.apk"
+                    output.outputFileName = "Clavier_${defaultConfig.versionName}-${variant.buildType}.apk"
                 }
             }
         }
